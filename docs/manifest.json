@@ -3,7 +3,7 @@
   "description": "read server notifications of chosen servers.",
   "authors": [
     {
-      "name": "Jowan",
+      "name": "jfdajs",
       "id": "0"
     }
   ],
@@ -11,5 +11,5 @@
   "vendetta": {
     "icon": "ic_sticker_24px"
   },
-  "hash": "c671da8b577ce80ec904def55d0922b5b9e0d0b153d651ac8d1368ddb63fac2c"
+  "hash": "67f94a185a74e2db869be066e34a00ce60dbdcc02e1100136712002ba1c28be4"
 }
