@@ -1,15 +1,15 @@
 {
-  "name": "ReadAll",
-  "description": "read server notifications of chosen servers.",
-  "authors": [
-    {
-      "name": "Jowan",
-      "id": "0"
-    }
-  ],
-  "main": "index.js",
-  "vendetta": {
-    "icon": "ic_sticker_24px"
-  },
-  "hash": "45FD4E2A2FA47FEF1451D85FC50CBC16AB2462519130A24708D465EB23F21F24"
+    "name": "ReadAll",
+    "description": "Mark unread notifications as read, only in servers you choose",
+    "authors": [
+        {
+            "name": "you",
+            "id": "0"
+        }
+    ],
+    "main": "index.js",
+    "vendetta": {
+        "icon": "ic_message_edit"
+    },
+    "hash": "31ff34560301bf6d615b17bb2bf79fb99e1dd23cbf4b982ef57d6e875e8136d8"
 }
