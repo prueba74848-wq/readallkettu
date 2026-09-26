@@ -1,15 +1,27 @@
 (function () {
+function require(id) {
+  switch (id) {
+    case "@vendetta": return vendetta;
+    case "@vendetta/patcher": return vendetta.patcher;
+    case "@vendetta/metro": return vendetta.metro;
+    case "@vendetta/metro/common": return vendetta.metro.common;
+    case "@vendetta/utils": return vendetta.utils;
+    case "@vendetta/ui": return vendetta.ui;
+    case "@vendetta/ui/assets": return vendetta.ui.assets;
+    case "@vendetta/ui/toasts": return vendetta.ui.toasts;
+    case "@vendetta/ui/components": return vendetta.ui.components;
+    case "@vendetta/storage": return vendetta.storage;
+    case "@vendetta/plugin": return vendetta.plugin;
+    case "@vendetta/commands": return vendetta.commands;
+    default: throw new Error("[ReadAll] Unknown module: " + id);
+  }
+}
 var module = { exports: {} };
 var exports = module.exports;
-var __create = Object.create;
 var __defProp = Object.defineProperty;
 var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
 var __getOwnPropNames = Object.getOwnPropertyNames;
-var __getProtoOf = Object.getPrototypeOf;
 var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __commonJS = (cb, mod) => function __require() {
-  return mod || (0, cb[__getOwnPropNames(cb)[0]])((mod = { exports: {} }).exports, mod), mod.exports;
-};
 var __export = (target, all) => {
   for (var name in all)
     __defProp(target, name, { get: all[name], enumerable: true });
@@ -22,64 +34,7 @@ var __copyProps = (to, from, except, desc) => {
   }
   return to;
 };
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
-  // If the importer is in node compatibility mode or this is not an ESM
-  // file that has been converted to a CommonJS file using a Babel-
-  // compatible transform (i.e. "__esModule" has not been set), then set
-  // "default" to the CommonJS "module.exports" for node compatibility.
-  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-  mod
-));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
-
-// external-global-plugin:@vendetta/patcher
-var require_patcher = __commonJS({
-  "external-global-plugin:@vendetta/patcher"(exports, module2) {
-    module2.exports = vendetta.patcher;
-  }
-});
-
-// external-global-plugin:@vendetta/metro/common
-var require_common = __commonJS({
-  "external-global-plugin:@vendetta/metro/common"(exports, module2) {
-    module2.exports = vendetta.metro.common;
-  }
-});
-
-// external-global-plugin:@vendetta/metro
-var require_metro = __commonJS({
-  "external-global-plugin:@vendetta/metro"(exports, module2) {
-    module2.exports = vendetta.metro;
-  }
-});
-
-// external-global-plugin:@vendetta/ui/toasts
-var require_toasts = __commonJS({
-  "external-global-plugin:@vendetta/ui/toasts"(exports, module2) {
-    module2.exports = vendetta.ui.toasts;
-  }
-});
-
-// external-global-plugin:@vendetta/ui/assets
-var require_assets = __commonJS({
-  "external-global-plugin:@vendetta/ui/assets"(exports, module2) {
-    module2.exports = vendetta.ui.assets;
-  }
-});
-
-// external-global-plugin:@vendetta/plugin
-var require_plugin = __commonJS({
-  "external-global-plugin:@vendetta/plugin"(exports, module2) {
-    module2.exports = vendetta.plugin;
-  }
-});
-
-// external-global-plugin:@vendetta/ui/components
-var require_components = __commonJS({
-  "external-global-plugin:@vendetta/ui/components"(exports, module2) {
-    module2.exports = vendetta.ui.components;
-  }
-});
 
 // src/index.ts
 var src_exports = {};
@@ -87,22 +42,22 @@ __export(src_exports, {
   default: () => src_default
 });
 module.exports = __toCommonJS(src_exports);
-var import_patcher = __toESM(require_patcher());
-var import_common3 = __toESM(require_common());
+var import_patcher = require("@vendetta/patcher");
+var import_common3 = require("@vendetta/metro/common");
 
 // src/ReadButton.tsx
-var import_common2 = __toESM(require_common());
-var import_metro2 = __toESM(require_metro());
-var import_toasts2 = __toESM(require_toasts());
-var import_assets2 = __toESM(require_assets());
+var import_common2 = require("@vendetta/metro/common");
+var import_metro2 = require("@vendetta/metro");
+var import_toasts2 = require("@vendetta/ui/toasts");
+var import_assets2 = require("@vendetta/ui/assets");
 
 // src/Settings.ts
-var import_plugin = __toESM(require_plugin());
-var import_metro = __toESM(require_metro());
-var import_common = __toESM(require_common());
-var import_components = __toESM(require_components());
-var import_toasts = __toESM(require_toasts());
-var import_assets = __toESM(require_assets());
+var import_plugin = require("@vendetta/plugin");
+var import_metro = require("@vendetta/metro");
+var import_common = require("@vendetta/metro/common");
+var import_components = require("@vendetta/ui/components");
+var import_toasts = require("@vendetta/ui/toasts");
+var import_assets = require("@vendetta/ui/assets");
 var DEFAULT_SETTINGS = {
   allowedServers: []
 };
