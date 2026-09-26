@@ -1,19 +1,15 @@
 {
     "name": "ReadAll",
-    "description": "Read all server and DM notifications with single command - /read",
+    "description": "Adds a button to your server list that marks unread channels as read, only in servers you choose",
     "authors": [
         {
-            "name": "Win8.1VMUser",
-            "id": "793935599702507542"
-        },
-        {
-            "name": "btmc727",
-            "id": "554071670143451176"
+            "name": "you",
+            "id": "0"
         }
     ],
     "main": "index.js",
     "vendetta": {
-        "icon": "ic_edit_24px"
+        "icon": "ic_eye"
     },
-    "hash": "99d8ded7ea6de53c6df7ca7d402f34ba7631c707574bc671c971d97b5539f926"
+    "hash": "ef27e94aad1a955c4c0b169c68fd7e12eff8dd7499da2d7e1ff5c54253fb98bb"
 }

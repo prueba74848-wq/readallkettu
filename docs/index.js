@@ -25,6 +25,20 @@
     mod
   ));
 
+  // external-global-plugin:@vendetta/patcher
+  var require_patcher = __commonJS({
+    "external-global-plugin:@vendetta/patcher"(exports, module) {
+      module.exports = vendetta.patcher;
+    }
+  });
+
+  // external-global-plugin:@vendetta/metro/common
+  var require_common = __commonJS({
+    "external-global-plugin:@vendetta/metro/common"(exports, module) {
+      module.exports = vendetta.metro.common;
+    }
+  });
+
   // external-global-plugin:@vendetta/metro
   var require_metro = __commonJS({
     "external-global-plugin:@vendetta/metro"(exports, module) {
@@ -46,24 +60,10 @@
     }
   });
 
-  // external-global-plugin:@vendetta/commands
-  var require_commands = __commonJS({
-    "external-global-plugin:@vendetta/commands"(exports, module) {
-      module.exports = vendetta.commands;
-    }
-  });
-
   // external-global-plugin:@vendetta/plugin
   var require_plugin = __commonJS({
     "external-global-plugin:@vendetta/plugin"(exports, module) {
       module.exports = vendetta.plugin;
-    }
-  });
-
-  // external-global-plugin:@vendetta/metro/common
-  var require_common = __commonJS({
-    "external-global-plugin:@vendetta/metro/common"(exports, module) {
-      module.exports = vendetta.metro.common;
     }
   });
 
@@ -75,17 +75,24 @@
   });
 
   // src/index.ts
+  var import_patcher = __toESM(require_patcher());
+  var import_common3 = __toESM(require_common());
+
+  // src/ReadButton.tsx
+  var import_common2 = __toESM(require_common());
   var import_metro2 = __toESM(require_metro());
-  var import_toasts = __toESM(require_toasts());
-  var import_assets = __toESM(require_assets());
-  var import_commands = __toESM(require_commands());
+  var import_toasts2 = __toESM(require_toasts());
+  var import_assets2 = __toESM(require_assets());
 
   // src/Settings.ts
   var import_plugin = __toESM(require_plugin());
   var import_metro = __toESM(require_metro());
+  var import_common = __toESM(require_common());
+  var import_components = __toESM(require_components());
+  var import_toasts = __toESM(require_toasts());
+  var import_assets = __toESM(require_assets());
   var DEFAULT_SETTINGS = {
-    excludedServers: [],
-    excludedDMs: []
+    allowedServers: []
   };
   var getSettings = () => {
     return { ...DEFAULT_SETTINGS, ...import_plugin.storage };
@@ -93,434 +100,106 @@
   var saveSettings = (settings) => {
     Object.assign(import_plugin.storage, settings);
   };
-  var addServerException = (serverId) => {
+  var addServerToAllowlist = (serverId) => {
     const settings = getSettings();
-    if (!settings.excludedServers.includes(serverId)) {
-      settings.excludedServers.push(serverId);
+    if (!settings.allowedServers.includes(serverId)) {
+      settings.allowedServers.push(serverId);
       saveSettings(settings);
       return true;
     }
     return false;
   };
-  var removeServerException = (serverId) => {
+  var removeServerFromAllowlist = (serverId) => {
     const settings = getSettings();
-    const index = settings.excludedServers.indexOf(serverId);
+    const index = settings.allowedServers.indexOf(serverId);
     if (index > -1) {
-      settings.excludedServers.splice(index, 1);
+      settings.allowedServers.splice(index, 1);
       saveSettings(settings);
       return true;
     }
     return false;
   };
-  var addDMException = (channelId) => {
+  var isServerAllowed = (serverId) => {
     const settings = getSettings();
-    if (!settings.excludedDMs.includes(channelId)) {
-      settings.excludedDMs.push(channelId);
-      saveSettings(settings);
-      return true;
-    }
-    return false;
-  };
-  var removeDMException = (channelId) => {
-    const settings = getSettings();
-    const index = settings.excludedDMs.indexOf(channelId);
-    if (index > -1) {
-      settings.excludedDMs.splice(index, 1);
-      saveSettings(settings);
-      return true;
-    }
-    return false;
-  };
-  var isServerExcluded = (serverId) => {
-    const settings = getSettings();
-    return settings.excludedServers.includes(serverId);
-  };
-  var isDMExcluded = (channelId) => {
-    const settings = getSettings();
-    return settings.excludedDMs.includes(channelId);
+    return settings.allowedServers.includes(serverId);
   };
   var getServerName = (serverId) => {
     try {
-      const GuildStore2 = (0, import_metro.findByStoreName)("GuildStore");
-      const guild = GuildStore2?.getGuild?.(serverId);
+      const GuildStore = (0, import_metro.findByStoreName)("GuildStore");
+      const guild = GuildStore?.getGuild?.(serverId);
       return guild?.name || `Unknown Server (${serverId})`;
     } catch (e) {
       return `Unknown Server (${serverId})`;
     }
   };
-  var getDMName = (channelId) => {
-    try {
-      const ChannelStore2 = (0, import_metro.findByStoreName)("ChannelStore");
-      const channel = ChannelStore2?.getChannel?.(channelId);
-      if (channel) {
-        if (channel.name) {
-          return channel.name;
-        } else if (channel.recipients && channel.recipients.length > 0) {
-          const UserStore = (0, import_metro.findByStoreName)("UserStore");
-          const user = UserStore?.getUser?.(channel.recipients[0]);
-          return user?.username ? `@${user.username}` : `Unknown User (${channelId})`;
-        }
-      }
-      return `Unknown DM (${channelId})`;
-    } catch (e) {
-      return `Unknown DM (${channelId})`;
-    }
-  };
-  var clearAllExceptions = () => {
+  var clearAllowlist = () => {
     const settings = getSettings();
-    settings.excludedServers = [];
-    settings.excludedDMs = [];
+    settings.allowedServers = [];
     saveSettings(settings);
   };
-  var getAllExceptions = () => {
+  var getAllowlist = () => {
     const settings = getSettings();
-    return {
-      servers: settings.excludedServers.map((id) => ({
-        id,
-        name: getServerName(id)
-      })),
-      dms: settings.excludedDMs.map((id) => ({
-        id,
-        name: getDMName(id)
-      }))
-    };
+    return settings.allowedServers.map((id) => ({
+      id,
+      name: getServerName(id)
+    }));
   };
-
-  // src/index.ts
-  var import_common = __toESM(require_common());
-  var import_components = __toESM(require_components());
-  var GuildStore;
-  var GuildChannelStore;
-  var ActiveJoinedThreadsStore;
-  var ReadStateStore;
-  var FluxDispatcher;
-  var ChannelStore;
-  var readCommandUnregister = null;
-  var readAllCommandUnregister = null;
-  var readServerCommandUnregister = null;
-  var readDMCommandUnregister = null;
-  var lastUsed = 0;
-  var COOLDOWN_MS = 6e4;
-  var initModules = () => {
-    GuildStore = (0, import_metro2.findByStoreName)("GuildStore");
-    GuildChannelStore = (0, import_metro2.findByStoreName)("GuildChannelStore") || (0, import_metro2.findByStoreName)("ChannelStore");
-    ChannelStore = (0, import_metro2.findByStoreName)("ChannelStore");
-    ReadStateStore = (0, import_metro2.findByStoreName)("ReadStateStore");
-    ActiveJoinedThreadsStore = (0, import_metro2.findByStoreName)("ActiveJoinedThreadsStore") || (0, import_metro2.findByProps)("getActiveJoinedThreadsForGuild");
-    FluxDispatcher = (0, import_metro2.findByProps)("dispatch", "subscribe") || (0, import_metro2.findByStoreName)("Dispatcher");
-  };
-  var getDMChannels = () => {
-    const dmChannels = [];
-    const channelStore = ChannelStore || GuildChannelStore;
-    if (!channelStore) return dmChannels;
-    if (channelStore.getPrivateChannels) {
-      try {
-        const privateChannels = channelStore.getPrivateChannels();
-        if (privateChannels && typeof privateChannels === "object") {
-          Object.values(privateChannels).forEach((channel) => {
-            if (channel && channel.id) dmChannels.push(channel);
-          });
-        }
-      } catch (e) {
-      }
-    }
-    if (dmChannels.length === 0 && channelStore.getSortedPrivateChannels) {
-      try {
-        const sortedPrivateChannels = channelStore.getSortedPrivateChannels();
-        if (Array.isArray(sortedPrivateChannels)) {
-          sortedPrivateChannels.forEach((channel) => {
-            if (channel && channel.id) dmChannels.push(channel);
-          });
-        }
-      } catch (e) {
-      }
-    }
-    if (dmChannels.length === 0 && channelStore.getChannels) {
-      try {
-        const meChannels = channelStore.getChannels("@me");
-        if (meChannels && meChannels.SELECTABLE) {
-          meChannels.SELECTABLE.forEach((c) => {
-            const channel = c.channel || c;
-            if (channel && channel.id) dmChannels.push(channel);
-          });
-        }
-      } catch (e) {
-      }
-    }
-    if (dmChannels.length === 0 && channelStore.getChannel && ReadStateStore?.getAllReadStates) {
-      try {
-        const allReadStates = ReadStateStore.getAllReadStates();
-        Object.keys(allReadStates).forEach((channelId) => {
-          try {
-            const channel = channelStore.getChannel(channelId);
-            if (channel) {
-              const isDM = channel.type === 1 || channel.type === 3 || !channel.guild_id && !channel.guildId;
-              if (isDM) dmChannels.push(channel);
-            }
-          } catch (e) {
-          }
-        });
-      } catch (e) {
-      }
-    }
-    return dmChannels;
-  };
-  var getServerChannels = () => {
-    if (!GuildStore || !ReadStateStore) return [];
-    const channels = [];
-    const guilds = GuildStore.getGuilds();
-    Object.values(guilds).forEach((guild) => {
-      if (!guild?.id) return;
-      try {
-        let guildChannels = [];
-        const channelStore = GuildChannelStore || ChannelStore;
-        if (channelStore?.getChannels) {
-          const channelData = channelStore.getChannels(guild.id);
-          if (channelData?.SELECTABLE) guildChannels = guildChannels.concat(channelData.SELECTABLE);
-          if (channelData?.VOCAL) guildChannels = guildChannels.concat(channelData.VOCAL);
-        }
-        if (ActiveJoinedThreadsStore?.getActiveJoinedThreadsForGuild) {
-          try {
-            const threads = ActiveJoinedThreadsStore.getActiveJoinedThreadsForGuild(guild.id);
-            const threadChannels = Object.values(threads).flatMap((threadGroup) => Object.values(threadGroup || {}));
-            guildChannels = guildChannels.concat(threadChannels);
-          } catch (e) {
-          }
-        }
-        guildChannels.forEach((c) => {
-          const channel = c?.channel || c;
-          if (!channel?.id) return;
-          if (isServerExcluded(guild.id)) return;
-          try {
-            if (ReadStateStore.hasUnread && ReadStateStore.hasUnread(channel.id)) {
-              channels.push({
-                channelId: channel.id,
-                messageId: ReadStateStore.lastMessageId?.(channel.id) || null,
-                readStateType: 0
-              });
-            }
-          } catch (e) {
-          }
-        });
-      } catch (e) {
-      }
-    });
-    return channels;
-  };
-  var getDMUnreadChannels = () => {
-    const channels = [];
-    const dmChannels = getDMChannels();
-    dmChannels.forEach((channel) => {
-      if (!channel?.id) return;
-      if (isDMExcluded(channel.id)) return;
-      try {
-        let hasUnread = false;
-        if (ReadStateStore.hasUnread) {
-          hasUnread = ReadStateStore.hasUnread(channel.id);
-        }
-        if (!hasUnread && ReadStateStore.getAllReadStates) {
-          const allReadStates = ReadStateStore.getAllReadStates();
-          const readState = allReadStates[channel.id];
-          if (readState) {
-            hasUnread = readState.mentionCount && readState.mentionCount > 0 || readState._unreadCount && readState._unreadCount > 0 || readState.unreadCount && readState.unreadCount > 0;
-          }
-        }
-        if (hasUnread) {
-          channels.push({
-            channelId: channel.id,
-            messageId: ReadStateStore.lastMessageId?.(channel.id) || null,
-            readStateType: 0
-          });
-        }
-      } catch (e) {
-      }
-    });
-    return channels;
-  };
-  var bulkAckNotifications = (type = "all") => {
-    if (!GuildStore || !ReadStateStore || !FluxDispatcher) return false;
-    let channels = [];
-    let typeLabel = "";
-    switch (type) {
-      case "server":
-        channels = getServerChannels();
-        typeLabel = "server";
-        break;
-      case "dm":
-        channels = getDMUnreadChannels();
-        typeLabel = "DM";
-        break;
-      case "all":
-      default:
-        channels = [...getServerChannels(), ...getDMUnreadChannels()];
-        typeLabel = "";
-        break;
-    }
-    if (channels.length === 0) {
-      const message2 = type === "all" ? "No unread notifications found!" : `No unread ${typeLabel} notifications found!`;
-      (0, import_toasts.showToast)(message2, (0, import_assets.getAssetIDByName)("ic_message_edit"));
-      return true;
-    }
-    FluxDispatcher.dispatch({
-      type: "BULK_ACK",
-      context: "APP",
-      channels
-    });
-    const message = type === "all" ? `Cleared ${channels.length} unread notifications!` : `Cleared ${channels.length} unread ${typeLabel} notifications!`;
-    (0, import_toasts.showToast)(message, (0, import_assets.getAssetIDByName)("ic_message_edit"));
-    return true;
-  };
-  var readMainNotifications = () => {
-    const now = Date.now();
-    const timeSinceLastUse = now - lastUsed;
-    if (timeSinceLastUse < COOLDOWN_MS) {
-      const remainingSeconds = Math.ceil((COOLDOWN_MS - timeSinceLastUse) / 1e3);
-      (0, import_toasts.showToast)(`Please wait ${remainingSeconds}s before using again`, (0, import_assets.getAssetIDByName)("ic_close_16px"));
-      return;
-    }
-    lastUsed = now;
-    bulkAckNotifications("all");
-  };
-  var readAllNotifications = () => {
-    const now = Date.now();
-    const timeSinceLastUse = now - lastUsed;
-    if (timeSinceLastUse < COOLDOWN_MS) {
-      const remainingSeconds = Math.ceil((COOLDOWN_MS - timeSinceLastUse) / 1e3);
-      (0, import_toasts.showToast)(`Please wait ${remainingSeconds}s before using again`, (0, import_assets.getAssetIDByName)("ic_close_16px"));
-      return;
-    }
-    lastUsed = now;
-    bulkAckNotifications("server");
-  };
-  var readServerNotifications = () => {
-    const now = Date.now();
-    const timeSinceLastUse = now - lastUsed;
-    if (timeSinceLastUse < COOLDOWN_MS) {
-      const remainingSeconds = Math.ceil((COOLDOWN_MS - timeSinceLastUse) / 1e3);
-      (0, import_toasts.showToast)(`Please wait ${remainingSeconds}s before using again`, (0, import_assets.getAssetIDByName)("ic_close_16px"));
-      return;
-    }
-    lastUsed = now;
-    bulkAckNotifications("server");
-  };
-  var readDMNotifications = () => {
-    const now = Date.now();
-    const timeSinceLastUse = now - lastUsed;
-    if (timeSinceLastUse < COOLDOWN_MS) {
-      const remainingSeconds = Math.ceil((COOLDOWN_MS - timeSinceLastUse) / 1e3);
-      (0, import_toasts.showToast)(`Please wait ${remainingSeconds}s before using again`, (0, import_assets.getAssetIDByName)("ic_close_16px"));
-      return;
-    }
-    lastUsed = now;
-    bulkAckNotifications("dm");
-  };
-  var SettingsComponent = () => {
-    const [serverInput, setServerInput] = import_common.React.useState("");
-    const [dmInput, setDMInput] = import_common.React.useState("");
-    const [exceptions, setExceptions] = import_common.React.useState(getAllExceptions());
-    const refreshExceptions = () => {
-      setExceptions(getAllExceptions());
-    };
-    const handleAddServer = () => {
-      if (serverInput.trim()) {
-        const success = addServerException(serverInput.trim());
+  function Settings() {
+    const [input, setInput] = import_common.React.useState("");
+    const [allowlist, setAllowlist] = import_common.React.useState(getAllowlist());
+    const refresh = () => setAllowlist(getAllowlist());
+    const handleAdd = () => {
+      if (input.trim()) {
+        const success = addServerToAllowlist(input.trim());
         if (success) {
-          (0, import_toasts.showToast)(`Added server to exceptions`, (0, import_assets.getAssetIDByName)("ic_check"));
-          setServerInput("");
-          refreshExceptions();
+          (0, import_toasts.showToast)("Server added", (0, import_assets.getAssetIDByName)("ic_check"));
+          setInput("");
+          refresh();
         } else {
-          (0, import_toasts.showToast)("Server already in exceptions", (0, import_assets.getAssetIDByName)("ic_close_16px"));
+          (0, import_toasts.showToast)("Server already added", (0, import_assets.getAssetIDByName)("ic_close_16px"));
         }
       }
     };
-    const handleAddDM = () => {
-      if (dmInput.trim()) {
-        const success = addDMException(dmInput.trim());
-        if (success) {
-          (0, import_toasts.showToast)(`Added DM to exceptions`, (0, import_assets.getAssetIDByName)("ic_check"));
-          setDMInput("");
-          refreshExceptions();
-        } else {
-          (0, import_toasts.showToast)("DM already in exceptions", (0, import_assets.getAssetIDByName)("ic_close_16px"));
-        }
-      }
-    };
-    const handleRemoveServer = (serverId) => {
-      removeServerException(serverId);
-      (0, import_toasts.showToast)("Server removed from exceptions", (0, import_assets.getAssetIDByName)("ic_check"));
-      refreshExceptions();
-    };
-    const handleRemoveDM = (channelId) => {
-      removeDMException(channelId);
-      (0, import_toasts.showToast)("DM removed from exceptions", (0, import_assets.getAssetIDByName)("ic_check"));
-      refreshExceptions();
+    const handleRemove = (serverId) => {
+      removeServerFromAllowlist(serverId);
+      (0, import_toasts.showToast)("Server removed", (0, import_assets.getAssetIDByName)("ic_check"));
+      refresh();
     };
     const handleClearAll = () => {
-      clearAllExceptions();
-      (0, import_toasts.showToast)("All exceptions cleared", (0, import_assets.getAssetIDByName)("ic_check"));
-      refreshExceptions();
+      clearAllowlist();
+      (0, import_toasts.showToast)("Allowlist cleared", (0, import_assets.getAssetIDByName)("ic_check"));
+      refresh();
     };
     return import_common.React.createElement(
       import_common.React.Fragment,
       null,
       import_common.React.createElement(
         import_components.Forms.FormSection,
-        { title: "Server Exceptions" },
+        { title: "Auto-Read Servers" },
         import_common.React.createElement(
           import_components.Forms.FormText,
           { style: { marginBottom: 10 } },
-          "Add server IDs to exclude from notification clearing:"
+          "Only servers added here get their notifications cleared when you tap the button in your server list. DMs are never touched."
         ),
         import_common.React.createElement(import_components.Forms.FormInput, {
           placeholder: "Enter server ID (e.g., 1325923169164333178)",
-          value: serverInput,
-          onChange: setServerInput,
-          onSubmitEditing: handleAddServer
+          value: input,
+          onChange: setInput,
+          onSubmitEditing: handleAdd
         }),
         import_common.React.createElement(import_components.Forms.FormRow, {
           label: "Add Server",
-          onPress: handleAddServer
+          onPress: handleAdd
         }),
-        exceptions.servers.map(
-          (server, index) => import_common.React.createElement(import_components.Forms.FormRow, {
+        allowlist.map(
+          (server) => import_common.React.createElement(import_components.Forms.FormRow, {
             key: server.id,
             label: server.name,
             subLabel: server.id,
             trailing: import_common.React.createElement(import_components.Forms.FormRow, {
               label: "Remove",
               style: { color: "#ff4757" },
-              onPress: () => handleRemoveServer(server.id)
-            })
-          })
-        )
-      ),
-      import_common.React.createElement(
-        import_components.Forms.FormSection,
-        { title: "DM Exceptions" },
-        import_common.React.createElement(
-          import_components.Forms.FormText,
-          { style: { marginBottom: 10 } },
-          "Add channel IDs to exclude from notification clearing:"
-        ),
-        import_common.React.createElement(import_components.Forms.FormInput, {
-          placeholder: "Enter channel ID (e.g., 1258452286682697890)",
-          value: dmInput,
-          onChange: setDMInput,
-          onSubmitEditing: handleAddDM
-        }),
-        import_common.React.createElement(import_components.Forms.FormRow, {
-          label: "Add DM",
-          onPress: handleAddDM
-        }),
-        exceptions.dms.map(
-          (dm, index) => import_common.React.createElement(import_components.Forms.FormRow, {
-            key: dm.id,
-            label: dm.name,
-            subLabel: dm.id,
-            trailing: import_common.React.createElement(import_components.Forms.FormRow, {
-              label: "Remove",
-              style: { color: "#ff4757" },
-              onPress: () => handleRemoveDM(dm.id)
+              onPress: () => handleRemove(server.id)
             })
           })
         )
@@ -529,85 +208,181 @@
         import_components.Forms.FormSection,
         { title: "Actions" },
         import_common.React.createElement(import_components.Forms.FormRow, {
-          label: "Clear All Exceptions",
+          label: "Clear Allowlist",
           onPress: handleClearAll
         })
       )
     );
-  };
-  var src_default = {
-    onLoad: () => {
-      initModules();
+  }
+
+  // src/ReadButton.tsx
+  var { View, Pressable, StyleSheet, Image } = import_common2.ReactNative;
+  var Haptic = (0, import_metro2.findByProps)("triggerHapticFeedback", "HapticFeedbackTypes");
+  var TILE = 48;
+  var MARGIN = 4;
+  var getStores = () => ({
+    GuildStore: (0, import_metro2.findByStoreName)("GuildStore"),
+    GuildChannelStore: (0, import_metro2.findByStoreName)("GuildChannelStore") || (0, import_metro2.findByStoreName)("ChannelStore"),
+    ChannelStore: (0, import_metro2.findByStoreName)("ChannelStore"),
+    ReadStateStore: (0, import_metro2.findByStoreName)("ReadStateStore"),
+    FluxDispatcher: (0, import_metro2.findByProps)("dispatch", "subscribe") || (0, import_metro2.findByStoreName)("Dispatcher")
+  });
+  var getUnreadServerChannels = () => {
+    const { GuildStore, GuildChannelStore, ChannelStore, ReadStateStore } = getStores();
+    if (!GuildStore || !ReadStateStore) return [];
+    const channels = [];
+    const guilds = GuildStore.getGuilds();
+    Object.values(guilds).forEach((guild) => {
+      if (!guild?.id || !isServerAllowed(guild.id)) return;
       try {
-        readCommandUnregister = (0, import_commands.registerCommand)({
-          name: "read",
-          description: "Clear all unread notifications",
-          applicationId: "-1",
-          execute: () => {
-            readMainNotifications();
-            return;
+        let guildChannels = [];
+        const channelStore = GuildChannelStore || ChannelStore;
+        if (channelStore?.getChannels) {
+          const channelData = channelStore.getChannels(guild.id);
+          if (channelData?.SELECTABLE) guildChannels = guildChannels.concat(channelData.SELECTABLE);
+          if (channelData?.VOCAL) guildChannels = guildChannels.concat(channelData.VOCAL);
+        } else if (channelStore?.getMutableGuildChannelsForGuild) {
+          guildChannels = Object.values(channelStore.getMutableGuildChannelsForGuild(guild.id) ?? {});
+        }
+        guildChannels.forEach((c) => {
+          const channel = c?.channel || c;
+          if (!channel?.id) return;
+          if (ReadStateStore.hasUnread?.(channel.id)) {
+            channels.push({
+              channelId: channel.id,
+              messageId: ReadStateStore.lastMessageId?.(channel.id) || null,
+              readStateType: 0
+            });
           }
         });
-        readAllCommandUnregister = (0, import_commands.registerCommand)({
-          name: "read all",
-          description: "Clear server unread notifications only",
-          applicationId: "-1",
-          execute: () => {
-            readAllNotifications();
-            return;
+      } catch {
+      }
+    });
+    return channels;
+  };
+  var executeClear = () => {
+    const { FluxDispatcher } = getStores();
+    const targetChannels = getUnreadServerChannels();
+    if (targetChannels.length === 0) {
+      (0, import_toasts2.showToast)("No unread notifications!", (0, import_assets2.getAssetIDByName)("Small"));
+      return;
+    }
+    FluxDispatcher.dispatch({
+      type: "BULK_ACK",
+      context: "APP",
+      channels: targetChannels
+    });
+    (0, import_toasts2.showToast)(`Cleared ${targetChannels.length} channel${targetChannels.length === 1 ? "" : "s"}!`, (0, import_assets2.getAssetIDByName)("Check"));
+  };
+  function ReadButton() {
+    const handlePress = () => {
+      Haptic?.triggerHapticFeedback?.(Haptic.HapticFeedbackTypes.SOFT);
+      executeClear();
+    };
+    return /* @__PURE__ */ import_common2.React.createElement(View, { style: st.row }, /* @__PURE__ */ import_common2.React.createElement(Pressable, { onPress: handlePress, accessibilityRole: "button", accessibilityLabel: "Read All (allowed servers)" }, /* @__PURE__ */ import_common2.React.createElement(View, { style: st.tile }, /* @__PURE__ */ import_common2.React.createElement(View, { style: st.circleBg }, /* @__PURE__ */ import_common2.React.createElement(
+      Image,
+      {
+        source: (0, import_assets2.getAssetIDByName)("ic_eye"),
+        style: { width: 24, height: 24, tintColor: "#DBDEE1" }
+      }
+    )))));
+  }
+  var st = StyleSheet.create({
+    row: {
+      alignSelf: "stretch",
+      alignItems: "center",
+      paddingTop: MARGIN,
+      paddingBottom: MARGIN
+    },
+    tile: {
+      width: TILE,
+      height: TILE,
+      borderRadius: 16,
+      backgroundColor: "#111214",
+      alignItems: "center",
+      justifyContent: "center",
+      overflow: "hidden"
+    },
+    circleBg: {
+      width: 36,
+      height: 36,
+      borderRadius: 18,
+      backgroundColor: "#2B2D31",
+      alignItems: "center",
+      justifyContent: "center"
+    }
+  });
+
+  // src/index.ts
+  var { View: View2 } = import_common3.ReactNative;
+  var TAG = "[ReadAll]";
+  var TILE2 = 48;
+  var MARGIN2 = 4;
+  var unpatchers = [];
+  var patchedObjects = /* @__PURE__ */ new WeakSet();
+  var retryTimer;
+  function isUseGuildsBarProps(exports) {
+    return typeof exports?.default === "function" && exports.default.name === "useGuildsBarProps";
+  }
+  function patchFooter(ret) {
+    const ldp = ret?.listDataProps;
+    if (!ldp || patchedObjects.has(ldp)) return;
+    if (typeof ldp.footerSize !== "function" || typeof ldp.renderFooter !== "function") return;
+    const origFooterSize = ldp.footerSize;
+    const origRenderFooter = ldp.renderFooter;
+    const extra = TILE2 + 2 * MARGIN2;
+    ldp.footerSize = () => origFooterSize.call(ldp) + extra;
+    ldp.renderFooter = () => import_common3.React.createElement(
+      View2,
+      { style: { alignSelf: "stretch" }, collapsable: false },
+      origRenderFooter.call(ldp),
+      import_common3.React.createElement(ReadButton)
+    );
+    patchedObjects.add(ldp);
+  }
+  function scanRegistry() {
+    const modules = globalThis?.modules;
+    if (!modules) return 0;
+    let patchedCount = 0;
+    for (const id in modules) {
+      const def = modules[id];
+      if (!def?.isInitialized) continue;
+      const exports = def.publicModule?.exports;
+      if (!exports) continue;
+      if (isUseGuildsBarProps(exports)) {
+        try {
+          unpatchers.push(
+            (0, import_patcher.after)("default", exports, (_args, ret) => patchFooter(ret))
+          );
+          patchedCount++;
+        } catch (e) {
+          console.log(TAG, `Failed to patch module ${id}:`, e);
+        }
+      }
+    }
+    return patchedCount;
+  }
+  var src_default = {
+    onLoad() {
+      const count = scanRegistry();
+      if (count === 0) {
+        let ticks = 0;
+        retryTimer = setInterval(() => {
+          ticks++;
+          const n = scanRegistry();
+          if (n > 0 || ticks >= 30) {
+            if (retryTimer) clearInterval(retryTimer);
+            retryTimer = void 0;
           }
-        });
-        readServerCommandUnregister = (0, import_commands.registerCommand)({
-          name: "read server",
-          description: "Clear server unread notifications only",
-          applicationId: "-1",
-          execute: () => {
-            readServerNotifications();
-            return;
-          }
-        });
-        readDMCommandUnregister = (0, import_commands.registerCommand)({
-          name: "read dm",
-          description: "Clear DM unread notifications only",
-          applicationId: "-1",
-          execute: () => {
-            readDMNotifications();
-            return;
-          }
-        });
-      } catch (e) {
+        }, 1e3);
       }
     },
-    onUnload: () => {
-      if (readCommandUnregister) {
-        try {
-          readCommandUnregister();
-          readCommandUnregister = null;
-        } catch (e) {
-        }
-      }
-      if (readAllCommandUnregister) {
-        try {
-          readAllCommandUnregister();
-          readAllCommandUnregister = null;
-        } catch (e) {
-        }
-      }
-      if (readServerCommandUnregister) {
-        try {
-          readServerCommandUnregister();
-          readServerCommandUnregister = null;
-        } catch (e) {
-        }
-      }
-      if (readDMCommandUnregister) {
-        try {
-          readDMCommandUnregister();
-          readDMCommandUnregister = null;
-        } catch (e) {
-        }
-      }
+    onUnload() {
+      if (retryTimer) clearInterval(retryTimer);
+      retryTimer = void 0;
+      unpatchers.forEach((u) => u());
+      unpatchers = [];
     },
-    settings: SettingsComponent
+    settings: Settings
   };
 })();
