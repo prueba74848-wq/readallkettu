@@ -80,11 +80,12 @@
   var import_assets = __toESM(require_assets());
   var import_commands = __toESM(require_commands());
 
-  // src/Allowlist.ts
+  // src/Settings.ts
   var import_plugin = __toESM(require_plugin());
   var import_metro = __toESM(require_metro());
   var DEFAULT_SETTINGS = {
-    allowedServers: []
+    excludedServers: [],
+    excludedDMs: []
   };
   var getSettings = () => {
     return { ...DEFAULT_SETTINGS, ...import_plugin.storage };
@@ -92,28 +93,51 @@
   var saveSettings = (settings) => {
     Object.assign(import_plugin.storage, settings);
   };
-  var addServerToAllowlist = (serverId) => {
+  var addServerException = (serverId) => {
     const settings = getSettings();
-    if (!settings.allowedServers.includes(serverId)) {
-      settings.allowedServers.push(serverId);
+    if (!settings.excludedServers.includes(serverId)) {
+      settings.excludedServers.push(serverId);
       saveSettings(settings);
       return true;
     }
     return false;
   };
-  var removeServerFromAllowlist = (serverId) => {
+  var removeServerException = (serverId) => {
     const settings = getSettings();
-    const index = settings.allowedServers.indexOf(serverId);
+    const index = settings.excludedServers.indexOf(serverId);
     if (index > -1) {
-      settings.allowedServers.splice(index, 1);
+      settings.excludedServers.splice(index, 1);
       saveSettings(settings);
       return true;
     }
     return false;
   };
-  var isServerAllowed = (serverId) => {
+  var addDMException = (channelId) => {
     const settings = getSettings();
-    return settings.allowedServers.includes(serverId);
+    if (!settings.excludedDMs.includes(channelId)) {
+      settings.excludedDMs.push(channelId);
+      saveSettings(settings);
+      return true;
+    }
+    return false;
+  };
+  var removeDMException = (channelId) => {
+    const settings = getSettings();
+    const index = settings.excludedDMs.indexOf(channelId);
+    if (index > -1) {
+      settings.excludedDMs.splice(index, 1);
+      saveSettings(settings);
+      return true;
+    }
+    return false;
+  };
+  var isServerExcluded = (serverId) => {
+    const settings = getSettings();
+    return settings.excludedServers.includes(serverId);
+  };
+  var isDMExcluded = (channelId) => {
+    const settings = getSettings();
+    return settings.excludedDMs.includes(channelId);
   };
   var getServerName = (serverId) => {
     try {
@@ -124,17 +148,42 @@
       return `Unknown Server (${serverId})`;
     }
   };
-  var clearAllowlist = () => {
+  var getDMName = (channelId) => {
+    try {
+      const ChannelStore2 = (0, import_metro.findByStoreName)("ChannelStore");
+      const channel = ChannelStore2?.getChannel?.(channelId);
+      if (channel) {
+        if (channel.name) {
+          return channel.name;
+        } else if (channel.recipients && channel.recipients.length > 0) {
+          const UserStore = (0, import_metro.findByStoreName)("UserStore");
+          const user = UserStore?.getUser?.(channel.recipients[0]);
+          return user?.username ? `@${user.username}` : `Unknown User (${channelId})`;
+        }
+      }
+      return `Unknown DM (${channelId})`;
+    } catch (e) {
+      return `Unknown DM (${channelId})`;
+    }
+  };
+  var clearAllExceptions = () => {
     const settings = getSettings();
-    settings.allowedServers = [];
+    settings.excludedServers = [];
+    settings.excludedDMs = [];
     saveSettings(settings);
   };
-  var getAllowlist = () => {
+  var getAllExceptions = () => {
     const settings = getSettings();
-    return settings.allowedServers.map((id) => ({
-      id,
-      name: getServerName(id)
-    }));
+    return {
+      servers: settings.excludedServers.map((id) => ({
+        id,
+        name: getServerName(id)
+      })),
+      dms: settings.excludedDMs.map((id) => ({
+        id,
+        name: getDMName(id)
+      }))
+    };
   };
 
   // src/index.ts
@@ -147,6 +196,9 @@
   var FluxDispatcher;
   var ChannelStore;
   var readCommandUnregister = null;
+  var readAllCommandUnregister = null;
+  var readServerCommandUnregister = null;
+  var readDMCommandUnregister = null;
   var lastUsed = 0;
   var COOLDOWN_MS = 6e4;
   var initModules = () => {
@@ -157,13 +209,68 @@
     ActiveJoinedThreadsStore = (0, import_metro2.findByStoreName)("ActiveJoinedThreadsStore") || (0, import_metro2.findByProps)("getActiveJoinedThreadsForGuild");
     FluxDispatcher = (0, import_metro2.findByProps)("dispatch", "subscribe") || (0, import_metro2.findByStoreName)("Dispatcher");
   };
+  var getDMChannels = () => {
+    const dmChannels = [];
+    const channelStore = ChannelStore || GuildChannelStore;
+    if (!channelStore) return dmChannels;
+    if (channelStore.getPrivateChannels) {
+      try {
+        const privateChannels = channelStore.getPrivateChannels();
+        if (privateChannels && typeof privateChannels === "object") {
+          Object.values(privateChannels).forEach((channel) => {
+            if (channel && channel.id) dmChannels.push(channel);
+          });
+        }
+      } catch (e) {
+      }
+    }
+    if (dmChannels.length === 0 && channelStore.getSortedPrivateChannels) {
+      try {
+        const sortedPrivateChannels = channelStore.getSortedPrivateChannels();
+        if (Array.isArray(sortedPrivateChannels)) {
+          sortedPrivateChannels.forEach((channel) => {
+            if (channel && channel.id) dmChannels.push(channel);
+          });
+        }
+      } catch (e) {
+      }
+    }
+    if (dmChannels.length === 0 && channelStore.getChannels) {
+      try {
+        const meChannels = channelStore.getChannels("@me");
+        if (meChannels && meChannels.SELECTABLE) {
+          meChannels.SELECTABLE.forEach((c) => {
+            const channel = c.channel || c;
+            if (channel && channel.id) dmChannels.push(channel);
+          });
+        }
+      } catch (e) {
+      }
+    }
+    if (dmChannels.length === 0 && channelStore.getChannel && ReadStateStore?.getAllReadStates) {
+      try {
+        const allReadStates = ReadStateStore.getAllReadStates();
+        Object.keys(allReadStates).forEach((channelId) => {
+          try {
+            const channel = channelStore.getChannel(channelId);
+            if (channel) {
+              const isDM = channel.type === 1 || channel.type === 3 || !channel.guild_id && !channel.guildId;
+              if (isDM) dmChannels.push(channel);
+            }
+          } catch (e) {
+          }
+        });
+      } catch (e) {
+      }
+    }
+    return dmChannels;
+  };
   var getServerChannels = () => {
     if (!GuildStore || !ReadStateStore) return [];
     const channels = [];
     const guilds = GuildStore.getGuilds();
     Object.values(guilds).forEach((guild) => {
       if (!guild?.id) return;
-      if (!isServerAllowed(guild.id)) return;
       try {
         let guildChannels = [];
         const channelStore = GuildChannelStore || ChannelStore;
@@ -171,8 +278,6 @@
           const channelData = channelStore.getChannels(guild.id);
           if (channelData?.SELECTABLE) guildChannels = guildChannels.concat(channelData.SELECTABLE);
           if (channelData?.VOCAL) guildChannels = guildChannels.concat(channelData.VOCAL);
-        } else if (channelStore?.getMutableGuildChannelsForGuild) {
-          guildChannels = Object.values(channelStore.getMutableGuildChannelsForGuild(guild.id) ?? {});
         }
         if (ActiveJoinedThreadsStore?.getActiveJoinedThreadsForGuild) {
           try {
@@ -185,6 +290,7 @@
         guildChannels.forEach((c) => {
           const channel = c?.channel || c;
           if (!channel?.id) return;
+          if (isServerExcluded(guild.id)) return;
           try {
             if (ReadStateStore.hasUnread && ReadStateStore.hasUnread(channel.id)) {
               channels.push({
@@ -201,11 +307,58 @@
     });
     return channels;
   };
-  var bulkAckNotifications = () => {
+  var getDMUnreadChannels = () => {
+    const channels = [];
+    const dmChannels = getDMChannels();
+    dmChannels.forEach((channel) => {
+      if (!channel?.id) return;
+      if (isDMExcluded(channel.id)) return;
+      try {
+        let hasUnread = false;
+        if (ReadStateStore.hasUnread) {
+          hasUnread = ReadStateStore.hasUnread(channel.id);
+        }
+        if (!hasUnread && ReadStateStore.getAllReadStates) {
+          const allReadStates = ReadStateStore.getAllReadStates();
+          const readState = allReadStates[channel.id];
+          if (readState) {
+            hasUnread = readState.mentionCount && readState.mentionCount > 0 || readState._unreadCount && readState._unreadCount > 0 || readState.unreadCount && readState.unreadCount > 0;
+          }
+        }
+        if (hasUnread) {
+          channels.push({
+            channelId: channel.id,
+            messageId: ReadStateStore.lastMessageId?.(channel.id) || null,
+            readStateType: 0
+          });
+        }
+      } catch (e) {
+      }
+    });
+    return channels;
+  };
+  var bulkAckNotifications = (type = "all") => {
     if (!GuildStore || !ReadStateStore || !FluxDispatcher) return false;
-    const channels = getServerChannels();
+    let channels = [];
+    let typeLabel = "";
+    switch (type) {
+      case "server":
+        channels = getServerChannels();
+        typeLabel = "server";
+        break;
+      case "dm":
+        channels = getDMUnreadChannels();
+        typeLabel = "DM";
+        break;
+      case "all":
+      default:
+        channels = [...getServerChannels(), ...getDMUnreadChannels()];
+        typeLabel = "";
+        break;
+    }
     if (channels.length === 0) {
-      (0, import_toasts.showToast)("No unread notifications found!", (0, import_assets.getAssetIDByName)("ic_message_edit"));
+      const message2 = type === "all" ? "No unread notifications found!" : `No unread ${typeLabel} notifications found!`;
+      (0, import_toasts.showToast)(message2, (0, import_assets.getAssetIDByName)("ic_message_edit"));
       return true;
     }
     FluxDispatcher.dispatch({
@@ -213,8 +366,20 @@
       context: "APP",
       channels
     });
-    (0, import_toasts.showToast)(`Cleared ${channels.length} unread notification${channels.length === 1 ? "" : "s"}!`, (0, import_assets.getAssetIDByName)("ic_message_edit"));
+    const message = type === "all" ? `Cleared ${channels.length} unread notifications!` : `Cleared ${channels.length} unread ${typeLabel} notifications!`;
+    (0, import_toasts.showToast)(message, (0, import_assets.getAssetIDByName)("ic_message_edit"));
     return true;
+  };
+  var readMainNotifications = () => {
+    const now = Date.now();
+    const timeSinceLastUse = now - lastUsed;
+    if (timeSinceLastUse < COOLDOWN_MS) {
+      const remainingSeconds = Math.ceil((COOLDOWN_MS - timeSinceLastUse) / 1e3);
+      (0, import_toasts.showToast)(`Please wait ${remainingSeconds}s before using again`, (0, import_assets.getAssetIDByName)("ic_close_16px"));
+      return;
+    }
+    lastUsed = now;
+    bulkAckNotifications("all");
   };
   var readAllNotifications = () => {
     const now = Date.now();
@@ -225,64 +390,137 @@
       return;
     }
     lastUsed = now;
-    bulkAckNotifications();
+    bulkAckNotifications("server");
   };
-  var Configure = () => {
-    const [input, setInput] = import_common.React.useState("");
-    const [allowlist, setAllowlist] = import_common.React.useState(getAllowlist());
-    const refresh = () => setAllowlist(getAllowlist());
-    const handleAdd = () => {
-      if (input.trim()) {
-        const success = addServerToAllowlist(input.trim());
+  var readServerNotifications = () => {
+    const now = Date.now();
+    const timeSinceLastUse = now - lastUsed;
+    if (timeSinceLastUse < COOLDOWN_MS) {
+      const remainingSeconds = Math.ceil((COOLDOWN_MS - timeSinceLastUse) / 1e3);
+      (0, import_toasts.showToast)(`Please wait ${remainingSeconds}s before using again`, (0, import_assets.getAssetIDByName)("ic_close_16px"));
+      return;
+    }
+    lastUsed = now;
+    bulkAckNotifications("server");
+  };
+  var readDMNotifications = () => {
+    const now = Date.now();
+    const timeSinceLastUse = now - lastUsed;
+    if (timeSinceLastUse < COOLDOWN_MS) {
+      const remainingSeconds = Math.ceil((COOLDOWN_MS - timeSinceLastUse) / 1e3);
+      (0, import_toasts.showToast)(`Please wait ${remainingSeconds}s before using again`, (0, import_assets.getAssetIDByName)("ic_close_16px"));
+      return;
+    }
+    lastUsed = now;
+    bulkAckNotifications("dm");
+  };
+  var SettingsComponent = () => {
+    const [serverInput, setServerInput] = import_common.React.useState("");
+    const [dmInput, setDMInput] = import_common.React.useState("");
+    const [exceptions, setExceptions] = import_common.React.useState(getAllExceptions());
+    const refreshExceptions = () => {
+      setExceptions(getAllExceptions());
+    };
+    const handleAddServer = () => {
+      if (serverInput.trim()) {
+        const success = addServerException(serverInput.trim());
         if (success) {
-          (0, import_toasts.showToast)("Server added", (0, import_assets.getAssetIDByName)("ic_check"));
-          setInput("");
-          refresh();
+          (0, import_toasts.showToast)(`Added server to exceptions`, (0, import_assets.getAssetIDByName)("ic_check"));
+          setServerInput("");
+          refreshExceptions();
         } else {
-          (0, import_toasts.showToast)("Server already added", (0, import_assets.getAssetIDByName)("ic_close_16px"));
+          (0, import_toasts.showToast)("Server already in exceptions", (0, import_assets.getAssetIDByName)("ic_close_16px"));
         }
       }
     };
-    const handleRemove = (serverId) => {
-      removeServerFromAllowlist(serverId);
-      (0, import_toasts.showToast)("Server removed", (0, import_assets.getAssetIDByName)("ic_check"));
-      refresh();
+    const handleAddDM = () => {
+      if (dmInput.trim()) {
+        const success = addDMException(dmInput.trim());
+        if (success) {
+          (0, import_toasts.showToast)(`Added DM to exceptions`, (0, import_assets.getAssetIDByName)("ic_check"));
+          setDMInput("");
+          refreshExceptions();
+        } else {
+          (0, import_toasts.showToast)("DM already in exceptions", (0, import_assets.getAssetIDByName)("ic_close_16px"));
+        }
+      }
+    };
+    const handleRemoveServer = (serverId) => {
+      removeServerException(serverId);
+      (0, import_toasts.showToast)("Server removed from exceptions", (0, import_assets.getAssetIDByName)("ic_check"));
+      refreshExceptions();
+    };
+    const handleRemoveDM = (channelId) => {
+      removeDMException(channelId);
+      (0, import_toasts.showToast)("DM removed from exceptions", (0, import_assets.getAssetIDByName)("ic_check"));
+      refreshExceptions();
     };
     const handleClearAll = () => {
-      clearAllowlist();
-      (0, import_toasts.showToast)("Allowlist cleared", (0, import_assets.getAssetIDByName)("ic_check"));
-      refresh();
+      clearAllExceptions();
+      (0, import_toasts.showToast)("All exceptions cleared", (0, import_assets.getAssetIDByName)("ic_check"));
+      refreshExceptions();
     };
     return import_common.React.createElement(
       import_common.React.Fragment,
       null,
       import_common.React.createElement(
         import_components.Forms.FormSection,
-        { title: "Auto-Read Servers" },
+        { title: "Server Exceptions" },
         import_common.React.createElement(
           import_components.Forms.FormText,
           { style: { marginBottom: 10 } },
-          "Only servers added here get their notifications cleared by Read All. DMs are never touched."
+          "Add server IDs to exclude from notification clearing:"
         ),
         import_common.React.createElement(import_components.Forms.FormInput, {
           placeholder: "Enter server ID (e.g., 1325923169164333178)",
-          value: input,
-          onChange: setInput,
-          onSubmitEditing: handleAdd
+          value: serverInput,
+          onChange: setServerInput,
+          onSubmitEditing: handleAddServer
         }),
         import_common.React.createElement(import_components.Forms.FormRow, {
           label: "Add Server",
-          onPress: handleAdd
+          onPress: handleAddServer
         }),
-        allowlist.map(
-          (server) => import_common.React.createElement(import_components.Forms.FormRow, {
+        exceptions.servers.map(
+          (server, index) => import_common.React.createElement(import_components.Forms.FormRow, {
             key: server.id,
             label: server.name,
             subLabel: server.id,
             trailing: import_common.React.createElement(import_components.Forms.FormRow, {
               label: "Remove",
               style: { color: "#ff4757" },
-              onPress: () => handleRemove(server.id)
+              onPress: () => handleRemoveServer(server.id)
+            })
+          })
+        )
+      ),
+      import_common.React.createElement(
+        import_components.Forms.FormSection,
+        { title: "DM Exceptions" },
+        import_common.React.createElement(
+          import_components.Forms.FormText,
+          { style: { marginBottom: 10 } },
+          "Add channel IDs to exclude from notification clearing:"
+        ),
+        import_common.React.createElement(import_components.Forms.FormInput, {
+          placeholder: "Enter channel ID (e.g., 1258452286682697890)",
+          value: dmInput,
+          onChange: setDMInput,
+          onSubmitEditing: handleAddDM
+        }),
+        import_common.React.createElement(import_components.Forms.FormRow, {
+          label: "Add DM",
+          onPress: handleAddDM
+        }),
+        exceptions.dms.map(
+          (dm, index) => import_common.React.createElement(import_components.Forms.FormRow, {
+            key: dm.id,
+            label: dm.name,
+            subLabel: dm.id,
+            trailing: import_common.React.createElement(import_components.Forms.FormRow, {
+              label: "Remove",
+              style: { color: "#ff4757" },
+              onPress: () => handleRemoveDM(dm.id)
             })
           })
         )
@@ -291,11 +529,7 @@
         import_components.Forms.FormSection,
         { title: "Actions" },
         import_common.React.createElement(import_components.Forms.FormRow, {
-          label: "Read All Now",
-          onPress: readAllNotifications
-        }),
-        import_common.React.createElement(import_components.Forms.FormRow, {
-          label: "Clear Allowlist",
+          label: "Clear All Exceptions",
           onPress: handleClearAll
         })
       )
@@ -307,10 +541,37 @@
       try {
         readCommandUnregister = (0, import_commands.registerCommand)({
           name: "read",
-          description: "Clear unread notifications in your allowed servers",
+          description: "Clear all unread notifications",
+          applicationId: "-1",
+          execute: () => {
+            readMainNotifications();
+            return;
+          }
+        });
+        readAllCommandUnregister = (0, import_commands.registerCommand)({
+          name: "read all",
+          description: "Clear server unread notifications only",
           applicationId: "-1",
           execute: () => {
             readAllNotifications();
+            return;
+          }
+        });
+        readServerCommandUnregister = (0, import_commands.registerCommand)({
+          name: "read server",
+          description: "Clear server unread notifications only",
+          applicationId: "-1",
+          execute: () => {
+            readServerNotifications();
+            return;
+          }
+        });
+        readDMCommandUnregister = (0, import_commands.registerCommand)({
+          name: "read dm",
+          description: "Clear DM unread notifications only",
+          applicationId: "-1",
+          execute: () => {
+            readDMNotifications();
             return;
           }
         });
@@ -325,7 +586,28 @@
         } catch (e) {
         }
       }
+      if (readAllCommandUnregister) {
+        try {
+          readAllCommandUnregister();
+          readAllCommandUnregister = null;
+        } catch (e) {
+        }
+      }
+      if (readServerCommandUnregister) {
+        try {
+          readServerCommandUnregister();
+          readServerCommandUnregister = null;
+        } catch (e) {
+        }
+      }
+      if (readDMCommandUnregister) {
+        try {
+          readDMCommandUnregister();
+          readDMCommandUnregister = null;
+        } catch (e) {
+        }
+      }
     },
-    settings: Configure
+    settings: SettingsComponent
   };
 })();
