@@ -13,193 +13,345 @@ function require(id) {
     case "@vendetta/storage": return vendetta.storage;
     case "@vendetta/plugin": return vendetta.plugin;
     case "@vendetta/commands": return vendetta.commands;
-    default: throw new Error("[ViewThread] Unknown module: " + id);
+    default: throw new Error("[ReadAll] Unknown module: " + id);
   }
 }
 var module = { exports: {} };
 var exports = module.exports;
-'use strict';
+var __defProp = Object.defineProperty;
+var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
+var __getOwnPropNames = Object.getOwnPropertyNames;
+var __hasOwnProp = Object.prototype.hasOwnProperty;
+var __export = (target, all) => {
+  for (var name in all)
+    __defProp(target, name, { get: all[name], enumerable: true });
+};
+var __copyProps = (to, from, except, desc) => {
+  if (from && typeof from === "object" || typeof from === "function") {
+    for (let key of __getOwnPropNames(from))
+      if (!__hasOwnProp.call(to, key) && key !== except)
+        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
+  }
+  return to;
+};
+var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-Object.defineProperties(exports, { __esModule: { value: true }, [Symbol.toStringTag]: { value: 'Module' } });
+// src/index.ts
+var src_exports = {};
+__export(src_exports, {
+  default: () => src_default
+});
+module.exports = __toCommonJS(src_exports);
+var import_patcher = require("@vendetta/patcher");
+var import_common3 = require("@vendetta/metro/common");
 
-const metro = require('@vendetta/metro');
-const patcher = require('@vendetta/patcher');
-const plugin = require('@vendetta/plugin');
-const _vendetta = require('@vendetta');
-const common = require('@vendetta/metro/common');
-const utils = require('@vendetta/utils');
-const assets = require('@vendetta/ui/assets');
-const toasts = require('@vendetta/ui/toasts');
-const components = require('@vendetta/ui/components');
-const storage = require('@vendetta/storage');
+// src/ReadButton.tsx
+var import_common2 = require("@vendetta/metro/common");
+var import_metro2 = require("@vendetta/metro");
+var import_toasts2 = require("@vendetta/ui/toasts");
+var import_assets2 = require("@vendetta/ui/assets");
 
-const { FormSection, FormInput, FormText } = components.Forms;
+// src/Settings.ts
+var import_plugin = require("@vendetta/plugin");
+var import_metro = require("@vendetta/metro");
+var import_common = require("@vendetta/metro/common");
+var import_components = require("@vendetta/ui/components");
+var import_toasts = require("@vendetta/ui/toasts");
+var import_assets = require("@vendetta/ui/assets");
+var DEFAULT_SETTINGS = {
+  allowedServers: []
+};
+var getSettings = () => {
+  return { ...DEFAULT_SETTINGS, ...import_plugin.storage };
+};
+var saveSettings = (settings) => {
+  Object.assign(import_plugin.storage, settings);
+};
+var addServerToAllowlist = (serverId) => {
+  const settings = getSettings();
+  if (!settings.allowedServers.includes(serverId)) {
+    settings.allowedServers.push(serverId);
+    saveSettings(settings);
+    return true;
+  }
+  return false;
+};
+var removeServerFromAllowlist = (serverId) => {
+  const settings = getSettings();
+  const index = settings.allowedServers.indexOf(serverId);
+  if (index > -1) {
+    settings.allowedServers.splice(index, 1);
+    saveSettings(settings);
+    return true;
+  }
+  return false;
+};
+var isServerAllowed = (serverId) => {
+  const settings = getSettings();
+  return settings.allowedServers.includes(serverId);
+};
+var getServerName = (serverId) => {
+  try {
+    const GuildStore = (0, import_metro.findByStoreName)("GuildStore");
+    const guild = GuildStore?.getGuild?.(serverId);
+    return guild?.name || `Unknown Server (${serverId})`;
+  } catch (e) {
+    return `Unknown Server (${serverId})`;
+  }
+};
+var clearAllowlist = () => {
+  const settings = getSettings();
+  settings.allowedServers = [];
+  saveSettings(settings);
+};
+var getAllowlist = () => {
+  const settings = getSettings();
+  return settings.allowedServers.map((id) => ({
+    id,
+    name: getServerName(id)
+  }));
+};
 function Settings() {
-  storage.useProxy(plugin.storage);
-  return /* @__PURE__ */ common.React.createElement(FormSection, { title: "View Thread", android_noDivider: true }, /* @__PURE__ */ common.React.createElement(
-    FormInput,
-    {
-      title: "Thread channel ID",
-      placeholder: "ID of the channel where the bot creates threads",
-      value: plugin.storage.threadChannelId,
-      onChange: (v) => plugin.storage.threadChannelId = v.trim()
+  const [input, setInput] = import_common.React.useState("");
+  const [allowlist, setAllowlist] = import_common.React.useState(getAllowlist());
+  const refresh = () => setAllowlist(getAllowlist());
+  const handleAdd = () => {
+    if (input.trim()) {
+      const success = addServerToAllowlist(input.trim());
+      if (success) {
+        (0, import_toasts.showToast)("Server added", (0, import_assets.getAssetIDByName)("ic_check"));
+        setInput("");
+        refresh();
+      } else {
+        (0, import_toasts.showToast)("Server already added", (0, import_assets.getAssetIDByName)("ic_close_16px"));
+      }
     }
-  ), /* @__PURE__ */ common.React.createElement(FormText, { style: { paddingHorizontal: 16, paddingBottom: 8 } }, 'Long-press a message and tap "View thread". Enable Developer Mode, then long-press the channel and use Copy Channel ID.'));
+  };
+  const handleRemove = (serverId) => {
+    removeServerFromAllowlist(serverId);
+    (0, import_toasts.showToast)("Server removed", (0, import_assets.getAssetIDByName)("ic_check"));
+    refresh();
+  };
+  const handleClearAll = () => {
+    clearAllowlist();
+    (0, import_toasts.showToast)("Allowlist cleared", (0, import_assets.getAssetIDByName)("ic_check"));
+    refresh();
+  };
+  return import_common.React.createElement(
+    import_common.React.Fragment,
+    null,
+    import_common.React.createElement(
+      import_components.Forms.FormSection,
+      { title: "Auto-Read Servers" },
+      import_common.React.createElement(
+        import_components.Forms.FormText,
+        { style: { marginBottom: 10 } },
+        "Only servers added here get their notifications cleared when you tap the button in your server list. DMs are never touched."
+      ),
+      import_common.React.createElement(import_components.Forms.FormInput, {
+        placeholder: "Enter server ID (e.g., 1325923169164333178)",
+        value: input,
+        onChange: setInput,
+        onSubmitEditing: handleAdd
+      }),
+      import_common.React.createElement(import_components.Forms.FormRow, {
+        label: "Add Server",
+        onPress: handleAdd
+      }),
+      allowlist.map(
+        (server) => import_common.React.createElement(import_components.Forms.FormRow, {
+          key: server.id,
+          label: server.name,
+          subLabel: server.id,
+          trailing: import_common.React.createElement(import_components.Forms.FormRow, {
+            label: "Remove",
+            style: { color: "#ff4757" },
+            onPress: () => handleRemove(server.id)
+          })
+        })
+      )
+    ),
+    import_common.React.createElement(
+      import_components.Forms.FormSection,
+      { title: "Actions" },
+      import_common.React.createElement(import_components.Forms.FormRow, {
+        label: "Clear Allowlist",
+        onPress: handleClearAll
+      })
+    )
+  );
 }
 
-var _a, _b, _c;
-const ActionSheet = metro.findByProps("openLazy", "hideActionSheet");
-const { ActionSheetRow } = metro.findByProps("ActionSheetRow");
-const ThreadIcon = (_c = (_b = (_a = assets.getAssetIDByName("ic_thread")) != null ? _a : assets.getAssetIDByName("ThreadIcon")) != null ? _b : assets.getAssetIDByName("ic_search")) != null ? _c : assets.getAssetIDByName("search");
-const THREAD_TYPES = [10, 11, 12];
-function openChannel(guildId, channelId) {
-  common.ReactNative.Linking.openURL(`https://discord.com/channels/${guildId}/${channelId}`);
-}
-function getRest() {
-  return metro.findByProps("get", "post", "del", "patch");
-}
-async function findThreadBySearch(guildId, parentId, userId) {
-  var _a2, _b2, _c2, _d;
-  const RestAPI = getRest();
-  for (let attempt = 0; attempt < 3; attempt++) {
-    const res = await RestAPI.get({
-      url: `/guilds/${guildId}/messages/search`,
-      query: { channel_id: parentId, mentions: userId, include_nsfw: true }
-    });
-    if (res.status === 202) {
-      await new Promise((r) => {
-        var _a3;
-        return setTimeout(r, ((_a3 = res.body) == null ? void 0 : _a3.retry_after) ? res.body.retry_after * 1e3 : 1e3);
+// src/ReadButton.tsx
+var { View, Pressable, StyleSheet, Image } = import_common2.ReactNative;
+var Haptic = (0, import_metro2.findByProps)("triggerHapticFeedback", "HapticFeedbackTypes");
+var TILE = 48;
+var MARGIN = 4;
+var getStores = () => ({
+  GuildStore: (0, import_metro2.findByStoreName)("GuildStore"),
+  GuildChannelStore: (0, import_metro2.findByStoreName)("GuildChannelStore") || (0, import_metro2.findByStoreName)("ChannelStore"),
+  ChannelStore: (0, import_metro2.findByStoreName)("ChannelStore"),
+  ReadStateStore: (0, import_metro2.findByStoreName)("ReadStateStore"),
+  FluxDispatcher: (0, import_metro2.findByProps)("dispatch", "subscribe") || (0, import_metro2.findByStoreName)("Dispatcher")
+});
+var getUnreadServerChannels = () => {
+  const { GuildStore, GuildChannelStore, ChannelStore, ReadStateStore } = getStores();
+  if (!GuildStore || !ReadStateStore) return [];
+  const channels = [];
+  const guilds = GuildStore.getGuilds();
+  Object.values(guilds).forEach((guild) => {
+    if (!guild?.id || !isServerAllowed(guild.id)) return;
+    try {
+      let guildChannels = [];
+      const channelStore = GuildChannelStore || ChannelStore;
+      if (channelStore?.getChannels) {
+        const channelData = channelStore.getChannels(guild.id);
+        if (channelData?.SELECTABLE) guildChannels = guildChannels.concat(channelData.SELECTABLE);
+        if (channelData?.VOCAL) guildChannels = guildChannels.concat(channelData.VOCAL);
+      } else if (channelStore?.getMutableGuildChannelsForGuild) {
+        guildChannels = Object.values(channelStore.getMutableGuildChannelsForGuild(guild.id) ?? {});
+      }
+      guildChannels.forEach((c) => {
+        const channel = c?.channel || c;
+        if (!channel?.id) return;
+        if (ReadStateStore.hasUnread?.(channel.id)) {
+          channels.push({
+            channelId: channel.id,
+            messageId: ReadStateStore.lastMessageId?.(channel.id) || null,
+            readStateType: 0
+          });
+        }
       });
-      continue;
+    } catch {
     }
-    const hits = ((_b2 = (_a2 = res.body) == null ? void 0 : _a2.messages) != null ? _b2 : []).flat();
-    for (const m of hits) {
-      if ((_c2 = m.thread) == null ? void 0 : _c2.id) return m.thread.id;
-    }
-    const ChannelStore = metro.findByProps("getChannel", "getMutableGuildChannelsForGuild");
-    for (const m of hits) {
-      const ch = (_d = ChannelStore == null ? void 0 : ChannelStore.getChannel) == null ? void 0 : _d.call(ChannelStore, m.channel_id);
-      if (ch && THREAD_TYPES.includes(ch.type)) return m.channel_id;
-    }
-    const other = hits.find((m) => m.channel_id !== parentId);
-    if (other) return other.channel_id;
-    return null;
-  }
-  return null;
-}
-async function findThreadByName(guildId, parentId, user) {
-  var _a2, _b2, _c2, _d;
-  const RestAPI = getRest();
-  const needles = [user.id, user.username, user.globalName, user.global_name].filter(Boolean).map((s) => s.toLowerCase());
-  const matches = (t) => {
-    var _a3;
-    const name = ((_a3 = t.name) != null ? _a3 : "").toLowerCase();
-    return needles.some((n) => name.includes(n));
-  };
-  try {
-    const active = await RestAPI.get({ url: `/guilds/${guildId}/threads/active` });
-    const t = ((_b2 = (_a2 = active.body) == null ? void 0 : _a2.threads) != null ? _b2 : []).find((t2) => t2.parent_id === parentId && matches(t2));
-    if (t) return t.id;
-  } catch (e) {
-    _vendetta.logger.log("[ViewThread] active threads failed: " + String(e));
-  }
-  try {
-    const arch = await RestAPI.get({
-      url: `/channels/${parentId}/threads/archived/public`,
-      query: { limit: 100 }
-    });
-    const t = ((_d = (_c2 = arch.body) == null ? void 0 : _c2.threads) != null ? _d : []).find(matches);
-    if (t) return t.id;
-  } catch (e) {
-    _vendetta.logger.log("[ViewThread] archived threads failed: " + String(e));
-  }
-  return null;
-}
-async function viewThread(guildId, user) {
-  const parentId = plugin.storage.threadChannelId;
-  if (!parentId) {
-    toasts.showToast("View Thread: set the thread channel ID in plugin settings", assets.getAssetIDByName("Small"));
+  });
+  return channels;
+};
+var executeClear = () => {
+  const { FluxDispatcher } = getStores();
+  const targetChannels = getUnreadServerChannels();
+  if (targetChannels.length === 0) {
+    (0, import_toasts2.showToast)("No unread notifications!", (0, import_assets2.getAssetIDByName)("Small"));
     return;
   }
-  try {
-    let threadId = await findThreadBySearch(guildId, parentId, user.id);
-    if (!threadId) threadId = await findThreadByName(guildId, parentId, user);
-    if (!threadId) {
-      toasts.showToast(`No thread found for ${user.username}`, assets.getAssetIDByName("Small"));
-      return;
+  FluxDispatcher.dispatch({
+    type: "BULK_ACK",
+    context: "APP",
+    channels: targetChannels
+  });
+  (0, import_toasts2.showToast)(`Cleared ${targetChannels.length} channel${targetChannels.length === 1 ? "" : "s"}!`, (0, import_assets2.getAssetIDByName)("Check"));
+};
+function ReadButton() {
+  const handlePress = () => {
+    Haptic?.triggerHapticFeedback?.(Haptic.HapticFeedbackTypes.SOFT);
+    executeClear();
+  };
+  return /* @__PURE__ */ import_common2.React.createElement(View, { style: st.row }, /* @__PURE__ */ import_common2.React.createElement(Pressable, { onPress: handlePress, accessibilityRole: "button", accessibilityLabel: "Read All (allowed servers)" }, /* @__PURE__ */ import_common2.React.createElement(View, { style: st.tile }, /* @__PURE__ */ import_common2.React.createElement(View, { style: st.circleBg }, /* @__PURE__ */ import_common2.React.createElement(
+    Image,
+    {
+      source: (0, import_assets2.getAssetIDByName)("ic_eye"),
+      style: { width: 24, height: 24, tintColor: "#DBDEE1" }
     }
-    openChannel(guildId, threadId);
-  } catch (err) {
-    _vendetta.logger.log("[ViewThread] Error: " + String(err));
-    toasts.showToast("View Thread failed, check logs", assets.getAssetIDByName("Small"));
-  }
+  )))));
 }
-let unpatchOpenLazy = null;
-const index = {
+var st = StyleSheet.create({
+  row: {
+    alignSelf: "stretch",
+    alignItems: "center",
+    paddingTop: MARGIN,
+    paddingBottom: MARGIN
+  },
+  tile: {
+    width: TILE,
+    height: TILE,
+    borderRadius: 16,
+    backgroundColor: "#111214",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden"
+  },
+  circleBg: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#2B2D31",
+    alignItems: "center",
+    justifyContent: "center"
+  }
+});
+
+// src/index.ts
+var { View: View2 } = import_common3.ReactNative;
+var TAG = "[ReadAll]";
+var TILE2 = 48;
+var MARGIN2 = 4;
+var unpatchers = [];
+var patchedObjects = /* @__PURE__ */ new WeakSet();
+var retryTimer;
+function isUseGuildsBarProps(exports) {
+  return typeof exports?.default === "function" && exports.default.name === "useGuildsBarProps";
+}
+function patchFooter(ret) {
+  const ldp = ret?.listDataProps;
+  if (!ldp || patchedObjects.has(ldp)) return;
+  if (typeof ldp.footerSize !== "function" || typeof ldp.renderFooter !== "function") return;
+  const origFooterSize = ldp.footerSize;
+  const origRenderFooter = ldp.renderFooter;
+  const extra = TILE2 + 2 * MARGIN2;
+  ldp.footerSize = () => origFooterSize.call(ldp) + extra;
+  ldp.renderFooter = () => import_common3.React.createElement(
+    View2,
+    { style: { alignSelf: "stretch" }, collapsable: false },
+    origRenderFooter.call(ldp),
+    import_common3.React.createElement(ReadButton)
+  );
+  patchedObjects.add(ldp);
+}
+function scanRegistry() {
+  const modules = globalThis?.modules;
+  if (!modules) return 0;
+  let patchedCount = 0;
+  for (const id in modules) {
+    const def = modules[id];
+    if (!def?.isInitialized) continue;
+    const exports = def.publicModule?.exports;
+    if (!exports) continue;
+    if (isUseGuildsBarProps(exports)) {
+      try {
+        unpatchers.push(
+          (0, import_patcher.after)("default", exports, (_args, ret) => patchFooter(ret))
+        );
+        patchedCount++;
+      } catch (e) {
+        console.log(TAG, `Failed to patch module ${id}:`, e);
+      }
+    }
+  }
+  return patchedCount;
+}
+var src_default = {
   onLoad() {
-    var _a2, _b2;
-    (_b2 = (_a2 = plugin.storage).threadChannelId) != null ? _b2 : _a2.threadChannelId = "";
-    unpatchOpenLazy = patcher.before("openLazy", ActionSheet, ([comp, args, msg]) => {
-      var _a3;
-      if (args !== "MessageLongPressActionSheet" || !(msg == null ? void 0 : msg.message)) return;
-      const author = msg.message.author;
-      if (!(author == null ? void 0 : author.id)) return;
-      const ChannelStore = metro.findByProps("getChannel", "getMutableGuildChannelsForGuild");
-      const channel = (_a3 = ChannelStore == null ? void 0 : ChannelStore.getChannel) == null ? void 0 : _a3.call(ChannelStore, msg.message.channel_id);
-      const guildId = channel == null ? void 0 : channel.guild_id;
-      if (!guildId) return;
-      comp.then((instance) => {
-        const unpatch = patcher.after("default", instance, (_, component) => {
-          common.React.useEffect(() => () => {
-            unpatch();
-          }, []);
-          const groups = utils.findInReactTree(
-            component,
-            (c) => {
-              var _a4, _b3;
-              return Array.isArray(c) && ((_b3 = (_a4 = c[0]) == null ? void 0 : _a4.type) == null ? void 0 : _b3.name) === "ActionSheetRowGroup";
-            }
-          );
-          if (!(groups == null ? void 0 : groups.length)) {
-            _vendetta.logger.warn("[ViewThread] Could not find ActionSheetRowGroups");
-            return;
-          }
-          const button = common.React.createElement(ActionSheetRow, {
-            label: "View thread",
-            icon: common.React.createElement(ActionSheetRow.Icon, { source: ThreadIcon }),
-            onPress: () => {
-              ActionSheet.hideActionSheet();
-              viewThread(guildId, author);
-            }
-          });
-          for (const group of groups) {
-            const rows = utils.findInReactTree(
-              group,
-              (c) => Array.isArray(c) && c.some((child) => {
-                var _a4;
-                return ((_a4 = child == null ? void 0 : child.type) == null ? void 0 : _a4.name) === "ActionSheetRow";
-              })
-            );
-            if (rows) {
-              rows.unshift(button);
-              return;
-            }
-          }
-          groups.splice(0, 0, common.React.createElement(ActionSheetRow.Group, null, button));
-        });
-      });
-    });
-    _vendetta.logger.log("[ViewThread] Loaded.");
+    const count = scanRegistry();
+    if (count === 0) {
+      let ticks = 0;
+      retryTimer = setInterval(() => {
+        ticks++;
+        const n = scanRegistry();
+        if (n > 0 || ticks >= 30) {
+          if (retryTimer) clearInterval(retryTimer);
+          retryTimer = void 0;
+        }
+      }, 1e3);
+    }
   },
   onUnload() {
-    unpatchOpenLazy == null ? void 0 : unpatchOpenLazy();
-    unpatchOpenLazy = null;
-    _vendetta.logger.log("[ViewThread] Unloaded.");
+    if (retryTimer) clearInterval(retryTimer);
+    retryTimer = void 0;
+    unpatchers.forEach((u) => u());
+    unpatchers = [];
   },
   settings: Settings
 };
 
-exports.default = index;
 return module.exports;
 })();
